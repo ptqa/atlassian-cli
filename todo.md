@@ -1430,3 +1430,13 @@ Patch for a defect shipped in 0.5.0 plus the documentation repair.
 - `jira api -X PUT` was rejected; only lowercase `-X put` parsed, while the README and the command's own help showed uppercase.
 - `docs/index.md` added; 0.5.0 docs un-staled; `docs/status.md` refreshed.
 - 19 broken `--output json` invocations across all 9 example scripts and 45 broken README command examples fixed, with `tests/docs_examples.rs` added so they cannot rot silently again.
+
+## 2026-08-16 — `bb pr reviewers` lists review status; `--add` endpoint fixed (branch `fix/bb-pr-reviewers-followup`)
+
+Issue #102 and PR #103 from an outside contributor, plus the follow-up this repo owed them.
+
+- PR #103 (merged): `bb pr reviewers <repo> <pr_id>` with no `--add` now lists participants with a derived `status` column (Approved / Changes Requested / No Response) instead of looping zero times and printing "✅ Reviewers added to pull request #N". `--all` includes `role == PARTICIPANT` rows. Participants come from the PR GET, which already embeds them, so there is no extra call.
+- `--all` combined with `--add` was silently ignored; now `conflicts_with = "add"`, so clap rejects it.
+- Fixed `--add`, which had never worked: it PUT `/pullrequests/{id}/default-reviewers/{uuid}`, an endpoint Bitbucket Cloud does not have (repo default reviewers are at `/repositories/{ws}/{repo}/default-reviewers/{user}`, and a PR's reviewer list is replaced by a PUT on the PR). Same class of defect as #100. It now reads the PR's current reviewers, unions the requested UUIDs in, and PUTs `{title, reviewers}` back.
+- UUIDs are normalised to Bitbucket's brace form, so `--add abc-123` and `--add '{abc-123}'` both work. `pr create --reviewers` uses the same normalisation, where a bare UUID had the same problem.
+- Row filtering moved out of `list_pr_reviewers` into a pure `reviewer_rows()`; 12 unit tests now cover status derivation, REVIEWER-vs-`--all` filtering, empty results, UUID normalisation and the union/dedupe. The added wiremock test pins the PUT path and body.
